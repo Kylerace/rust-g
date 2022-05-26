@@ -28,7 +28,7 @@ sha2 = { version = "0.9", optional = true }
 hex = { version = "0.4", optional = true }
 percent-encoding = { version = "2.1", optional = true }
 url-dep = { version = "2.1", package = "url", optional = true }
-png = { version = "0.16", optional = true }
+png = { version = "0.17.5", optional = true }
 image = { version = "0.23.10", optional = true }
 git2 = { version = "0.13", optional = true, default-features = false }
 noise = { version = "0.7", optional = true}

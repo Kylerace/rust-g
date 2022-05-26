@@ -1,9 +1,13 @@
 use crate::error::{Error, Result};
-use png::{Decoder, Encoder, OutputInfo};
+use png::{Decoder, Encoder, OutputInfo, text_metadata::ZTXtChunk};
 use std::{
     fs::{create_dir_all, File},
     path::Path,
 };
+/*
+use inflate::inflate_bytes;
+use std::str::from_utf8;
+*/
 
 byond_fn!(fn dmi_strip_metadata(path) {
     strip_metadata(path).err()
@@ -24,6 +28,42 @@ byond_fn!(fn dmi_resize_png(path, width, height, resizetype) {
     };
     resize_png(path, width, height, resizetype).err()
 });
+
+byond_fn!(fn rustg_icon_states(icon_path, icon_state, dir, frame, moving) {
+    icon_states(icon_path, icon_state, dir, frame, moving).err()
+});
+
+pub struct IconMetaData<R: Read> {
+    ///DMI format version: this should never be anything other than 4.0
+    pub version: f32,
+    ///width in pixels of every icon_state in this icon
+    pub width: u32,
+    ///height in pixels of every icon_state in this icon
+    pub height: u32,
+    ///list of icon_state metadata structs
+    pub icon_states: Vec<IconState<R>>
+}
+
+pub struct IconState<R: Read> {
+    ///the name of the icon_state
+    state_name: String,
+    ///number of directional states we have, should always be 1, 4, or 8
+    number_of_dirs: u32,
+
+
+}
+
+fn icon_states(icon_path: &str, icon_state: &str, dir: &str, frame: &str, moving: &str) -> Result<()> {
+    let decoder = png::Decoder::new(File::open(icon_path).unwrap()); //what the fuck does function_call()? do
+    let mut reader = decoder.read_info().unwrap();
+    let mut return_string: String = None;
+
+    for text_chunk in &reader.info().compressed_latin1_text {
+        let uncompressed_chunk: String = text_chunk.get_text().unwrap();
+    }
+
+    OK(2)
+}
 
 fn strip_metadata(path: &str) -> Result<()> {
     let (info, image) = read_png(path)?;
