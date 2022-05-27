@@ -33,7 +33,7 @@ byond_fn!(fn rustg_icon_states(icon_path, icon_state, dir, frame, moving) {
     icon_states(icon_path, icon_state, dir, frame, moving).err()
 });
 
-pub struct IconMetaData<R: Read> {
+pub struct IconMetaData<'a> {
     ///DMI format version: this should never be anything other than 4.0
     pub version: f32,
     ///width in pixels of every icon_state in this icon
@@ -41,28 +41,36 @@ pub struct IconMetaData<R: Read> {
     ///height in pixels of every icon_state in this icon
     pub height: u32,
     ///list of icon_state metadata structs
-    pub icon_states: Vec<IconState<R>>
+    pub icon_states: Vec<IconState<'a>>
 }
 
-pub struct IconState<R: Read> {
+pub struct IconState<'a> {
     ///the name of the icon_state
     state_name: String,
     ///number of directional states we have, should always be 1, 4, or 8
     number_of_dirs: u32,
+    ///array of frame delays
+    delays: &'a [u32],
+    ///total number of animation frames
+    number_of_frames: u32,
 
-
+    moving: bool,
 }
 
 fn icon_states(icon_path: &str, icon_state: &str, dir: &str, frame: &str, moving: &str) -> Result<()> {
-    let decoder = png::Decoder::new(File::open(icon_path).unwrap()); //what the fuck does function_call()? do
-    let mut reader = decoder.read_info().unwrap();
-    let mut return_string: String = None;
+    let decoder = png::Decoder::new(File::open(icon_path)?);
+    let mut reader = decoder.read_info()?;
+    let mut return_string: String = "".to_string();
 
     for text_chunk in &reader.info().compressed_latin1_text {
-        let uncompressed_chunk: String = text_chunk.get_text().unwrap();
+        let uncompressed_chunk: String = text_chunk.get_text()?;
     }
 
-    OK(2)
+    Ok(2)
+}
+
+fn parse_icon_metadata(uncompressed_chunk: String) -> Result<(IconMetaData)> {
+
 }
 
 fn strip_metadata(path: &str) -> Result<()> {
@@ -71,10 +79,12 @@ fn strip_metadata(path: &str) -> Result<()> {
 }
 
 fn read_png(path: &str) -> Result<(OutputInfo, Vec<u8>)> {
-    let (info, mut reader) = Decoder::new(File::open(path)?).read_info()?;
-    let mut buf = vec![0; info.buffer_size()];
+    let decoder = png::Decoder::new(File::open(path)?);
+    let mut reader = decoder.read_info()?;
 
-    reader.next_frame(&mut buf)?;
+    let mut buf = vec![0; reader.output_buffer_size()];
+
+    let info: OutputInfo = reader.next_frame(&mut buf)?;
     Ok((info, buf))
 }
 
