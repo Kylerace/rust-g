@@ -42,6 +42,29 @@ pub struct IconMetaData<'a> {
     pub height: u32,
     ///list of icon_state metadata structs
     pub icon_states: Vec<IconState<'a>>
+
+}
+
+impl IconMetaData<'_> {
+    pub fn new(metadata: String) -> IconMetaData<'static> {
+        let icon_data = IconMetaData::find_metadata_until_icon_states(metadata);
+        let icon_state_data: Vec<IconState> = IconState::
+        IconMetaData {
+            version: icon_data.0,
+            width: icon_data.1
+            height: icon_data.2
+        }
+    }
+
+    fn find_metadata_until_icon_states(metadata: String) -> (f32, u32, u32, String) {
+        let mut word_buffer:Vec<char> = vec![];
+        let mut lines = metadata.lines();
+        for current_line in lines {
+            let some_type: String = current_line.to_string().split_whitespace().collect();
+        }
+
+        (1.0, 0,0, "blarg".to_string())
+    }
 }
 
 pub struct IconState<'a> {
@@ -57,19 +80,31 @@ pub struct IconState<'a> {
     moving: bool,
 }
 
-fn icon_states(icon_path: &str, icon_state: &str, dir: &str, frame: &str, moving: &str) -> Result<()> {
+impl IconState<'_> {
+    pub fn parse_state_meta_data
+}
+
+fn icon_states(icon_path: &str, icon_state: &str, dir: &str, frame: &str, moving: &str) -> Result<String> {
     let decoder = png::Decoder::new(File::open(icon_path)?);
     let mut reader = decoder.read_info()?;
     let mut return_string: String = "".to_string();
 
     for text_chunk in &reader.info().compressed_latin1_text {
+        if text_chunk.keyword != "Description" {
+            continue
+        }
+
         let uncompressed_chunk: String = text_chunk.get_text()?;
+        let icon: IconMetaData = parse_icon_metadata(uncompressed_chunk)?;
     }
 
-    Ok(2)
+    Ok(return_string)
 }
 
-fn parse_icon_metadata(uncompressed_chunk: String) -> Result<(IconMetaData)> {
+fn parse_icon_metadata(uncompressed_meta_data_text: String) -> Result<IconMetaData> {
+    for character: char in uncompressed_meta_data_text.chars() {
+
+    }
 
 }
 
@@ -131,7 +166,7 @@ fn resize_png<P: AsRef<Path>>(
     width: &str,
     height: &str,
     resizetype: image::imageops::FilterType,
-) -> std::result::Result<(), Error> {
+) -> Result<()> {
     let width = width.parse::<u32>()?;
     let height = height.parse::<u32>()?;
 
