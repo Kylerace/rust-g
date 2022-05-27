@@ -46,24 +46,48 @@ pub struct IconMetaData<'a> {
 }
 
 impl IconMetaData<'_> {
-    pub fn new(metadata: String) -> IconMetaData<'static> {
-        let icon_data = IconMetaData::find_metadata_until_icon_states(metadata);
-        let icon_state_data: Vec<IconState> = IconState::
-        IconMetaData {
+    pub fn new(metadata: String) -> IconMetaData<'static> {//TODOKYLER: i dont think i actually want 'static
+        let icon_data = IconMetaData::parse_metadata_until_icon_states(metadata);
+        //let icon_state_data: Vec<IconState> = IconState::
+        /*IconMetaData {
             version: icon_data.0,
-            width: icon_data.1
-            height: icon_data.2
-        }
+            width: icon_data.1,
+            height: icon_data.2,
+        }*/
     }
 
-    fn find_metadata_until_icon_states(metadata: String) -> (f32, u32, u32, String) {
-        let mut word_buffer:Vec<char> = vec![];
+    fn parse_metadata_until_icon_states(metadata: String) -> (f32, u32, u32, String) {
         let mut lines = metadata.lines();
+
+        let mut dmi_version: f32 = 0;
+        let mut width: u32 = 0;
+        let mut height: u32 = 0;
+        let mut icon_meta_data: String = "".to_string();
+
         for current_line in lines {
-            let some_type: String = current_line.to_string().split_whitespace().collect();
+            let mut keywords = current_line.split_whitespace();
+            let mut last_found_keyword: &str = None;
+            let mut last_found_value: &str = None;
+
+            match keywords.next() {
+                Some("version") => last_found_keyword = &dmi_version,
+                Some("width") => last_found_keyword = &width,
+                Some("height") => last_found_keyword = &height,
+                Some("state") => break, //we got to the icon_state metadata, early out
+                _ => Err("improper line data! expected an icon metadata keyword, got {}", _)
+            }
+            match keywords.next() {
+                Some("=") => {
+                    match keywords.next() {
+                        Some(n @ _) => *last_found_keyword = n,
+                        None => Err("improper line data! expected a value")
+                    }
+                }
+                _ => Err("improper line data! expected = as second line element")
+            }
         }
 
-        (1.0, 0,0, "blarg".to_string())
+        (dmi_version, width, height, icon_meta_data)
     }
 }
 
@@ -81,7 +105,9 @@ pub struct IconState<'a> {
 }
 
 impl IconState<'_> {
-    pub fn parse_state_meta_data
+    pub fn parse_state_meta_data(remaining_metadata: String) -> Option<(String, IconState)> {
+
+    }
 }
 
 fn icon_states(icon_path: &str, icon_state: &str, dir: &str, frame: &str, moving: &str) -> Result<String> {
@@ -99,13 +125,6 @@ fn icon_states(icon_path: &str, icon_state: &str, dir: &str, frame: &str, moving
     }
 
     Ok(return_string)
-}
-
-fn parse_icon_metadata(uncompressed_meta_data_text: String) -> Result<IconMetaData> {
-    for character: char in uncompressed_meta_data_text.chars() {
-
-    }
-
 }
 
 fn strip_metadata(path: &str) -> Result<()> {
