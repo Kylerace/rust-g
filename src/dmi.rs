@@ -4,10 +4,6 @@ use std::{
     fs::{create_dir_all, File},
     path::Path,
 };
-/*
-use inflate::inflate_bytes;
-use std::str::from_utf8;
-*/
 
 byond_fn!(fn dmi_strip_metadata(path) {
     strip_metadata(path).err()
@@ -46,54 +42,56 @@ pub struct IconMetaData<'a> {
 }
 
 impl IconMetaData<'_> {
-    pub fn new(metadata: String) -> IconMetaData<'static> {//TODOKYLER: i dont think i actually want 'static
-        let icon_data = IconMetaData::parse_metadata_until_icon_states(metadata);
+    pub fn new<'a>(metadata: String) -> IconMetaData<'a> {
+        let icon_data: (f32, u32, u32, Vec<IconState<'_>>) = IconMetaData::parse_metadata(metadata);
         //let icon_state_data: Vec<IconState> = IconState::
-        /*IconMetaData {
+        IconMetaData {
             version: icon_data.0,
             width: icon_data.1,
             height: icon_data.2,
-        }*/
+            icon_states: icon_data.3
+        }
     }
 
-    fn parse_metadata_until_icon_states(metadata: String) -> (f32, u32, u32, String) {
-        let mut lines = metadata.lines();
+    fn parse_metadata<'a>(metadata: String) -> (f32, u32, u32, Vec<IconState<'a>>) {
+        let lines: std::str::Lines = metadata.lines();
 
-        let mut dmi_version: f32 = 0;
+        let mut dmi_version: f32 = 0.0;
         let mut width: u32 = 0;
         let mut height: u32 = 0;
         let mut icon_meta_data: String = "".to_string();
+        let mut icon_states: Vec<IconState<'a>> = vec![];
 
         for current_line in lines {
-            let mut keywords = current_line.split_whitespace();
-            let mut last_found_keyword: &str = None;
-            let mut last_found_value: &str = None;
+            let keywords: std::str::SplitWhitespace = current_line.split_whitespace();
+            let keyword: &str = keywords.next().unwrap();
 
-            match keywords.next() {
-                Some("version") => last_found_keyword = &dmi_version,
-                Some("width") => last_found_keyword = &width,
-                Some("height") => last_found_keyword = &height,
-                Some("state") => break, //we got to the icon_state metadata, early out
-                _ => Err("improper line data! expected an icon metadata keyword, got {}", _)
+            match keyword {
+                "Description" => continue, //png zTxt metadata keyword
+                "#" => continue, //# BEGIN DMI, metadata header
+                "version" => dmi_version = keywords.skip(2).next().unwrap().parse::<f32>().unwrap(),
+                "width" => width = keywords.skip(2).next().unwrap().parse::<u32>().unwrap(),
+                "height" => height = keywords.skip(2).next().unwrap().parse::<u32>().unwrap(),
+
+                //icon_state metadata that fills the vector with IconState structs
+                "state" => {match IconState::parse_icon_state(keyword, &mut keywords, &mut lines) {
+                    Ok(IconState) => (),
+                    Err(IconState) => ()
+                }},
             }
-            match keywords.next() {
-                Some("=") => {
-                    match keywords.next() {
-                        Some(n @ _) => *last_found_keyword = n,
-                        None => Err("improper line data! expected a value")
-                    }
-                }
-                _ => Err("improper line data! expected = as second line element")
-            }
+
+
         }
 
-        (dmi_version, width, height, icon_meta_data)
+        (dmi_version, width, height, icon_states)
     }
+
 }
 
+#[derive(Debug)]
 pub struct IconState<'a> {
     ///the name of the icon_state
-    state_name: String,
+    state_name: &'a str,
     ///number of directional states we have, should always be 1, 4, or 8
     number_of_dirs: u32,
     ///array of frame delays
@@ -104,9 +102,61 @@ pub struct IconState<'a> {
     moving: bool,
 }
 
-impl IconState<'_> {
-    pub fn parse_state_meta_data(remaining_metadata: String) -> Option<(String, IconState)> {
 
+impl IconState<'_> {
+    pub fn parse_icon_state<'a>(starting_keyword: &str, current_line: &mut std::str::SplitWhitespace<'a>, lines: &mut std::str::Lines,) -> Option<IconState<'a>> {
+        //we're called when the IconMetaData struct finds a "state" line, which is of the form: "state = "state_name""
+
+        let mut keywords: std::str::SplitWhitespace = *current_line;
+        let mut lines_left: std::str::Lines = *lines;
+        let mut new_icon_state: IconState<'a> = IconState{state_name: "", number_of_dirs: 1, delays: &[0], number_of_frames: 1, moving: false};
+
+        if starting_keyword != "value" {
+            return None //TODOKYLER: figure out how errors work
+        }
+        match keywords.skip(2).next() {
+            Some(new_value) => new_icon_state.state_name = new_value,
+            None => return None //TODOKYLER: figure out how errors work
+        };
+        loop {
+            match lines_left.next() {
+                Some(next_line) => {
+                    let current_line_iterator = next_line.split_whitespace();
+                    match current_line_iterator.next() {
+                        Some("dirs") => new_icon_state.parse_dir(current_line_iterator.skip(2).next()),
+                        Some("frames") => new_icon_state.parse_frames(current_line_iterator.skip(2).next()),
+                        Some("delay") => new_icon_state.parse_delay(current_line_iterator),
+                    }
+
+                }
+                _ => return Some(new_icon_state),
+            }
+        }
+
+
+
+        Some(new_icon_state)
+    }
+
+    fn parse_dir(&self, value: Option<&str>) -> () {
+        match value {
+            Some(dir_num) => self.number_of_dirs = dir_num.parse::<u32>().unwrap(),
+            _ => return //TODOKYLER: make this return an error state
+        }
+    }
+
+    fn parse_frames(&self, value: Option<&str>) -> () {
+        match value {
+            Some(dir_num) => self.number_of_frames = dir_num.parse::<u32>().unwrap(),
+            _ => return //TODOKYLER: make this return an error state
+        }
+    }
+
+    fn parse_delay(&self, current_line: &mut std::str::SplitWhitespace) -> () {
+        match value {
+            Some(dir_num) => self.number_of_dirs = dir_num.parse::<u32>().unwrap(),
+            _ => return //TODOKYLER: make this return an error state
+        }
     }
 }
 
@@ -121,7 +171,7 @@ fn icon_states(icon_path: &str, icon_state: &str, dir: &str, frame: &str, moving
         }
 
         let uncompressed_chunk: String = text_chunk.get_text()?;
-        let icon: IconMetaData = parse_icon_metadata(uncompressed_chunk)?;
+        let icon: IconMetaData<'_> = IconMetaData::new(uncompressed_chunk);
     }
 
     Ok(return_string)
@@ -174,7 +224,7 @@ fn create_png(path: &str, width: &str, height: &str, data: &str) -> Result<()> {
     }
 
     let mut encoder = Encoder::new(File::create(path)?, width, height);
-    encoder.set_color(png::ColorType::RGB);
+    encoder.set_color(png::ColorType::Rgb);
     encoder.set_depth(png::BitDepth::Eight);
     let mut writer = encoder.write_header()?;
     Ok(writer.write_image_data(&result)?)
